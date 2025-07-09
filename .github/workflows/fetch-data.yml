@@ -1,0 +1,47 @@
+name: Fetch Bot Data
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Every 5 minutes
+  workflow_dispatch:      # Allow manual trigger
+  push:
+    branches: [ main ]     # Also run on pushes
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Create data directory
+        run: mkdir -p dashboard/static/data
+        
+      - name: Fetch data from bot
+        run: |
+          # Try to fetch data from your bot
+          # Replace with your actual public IP or dynamic DNS hostname
+          # Example: "http://123.456.789.012:3001/api/data-export/export"
+          # Or: "http://your-domain.ddns.net:3001/api/data-export/export"
+          if curl -f --connect-timeout 10 "http://YOUR_PUBLIC_IP:3001/api/data-export/export" > dashboard/static/data/current.json; then
+            echo "Data fetched successfully"
+          else
+            echo "Bot not accessible, keeping existing data"
+            exit 0
+          fi
+          
+      - name: Commit and push data
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          if git diff --quiet dashboard/static/data/current.json; then
+            echo "No data changes"
+          else
+            git add dashboard/static/data/current.json
+            git commit -m "🤖 Update bot data - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            git push
+          fi

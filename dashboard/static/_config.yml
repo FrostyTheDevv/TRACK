@@ -1,0 +1,18 @@
+baseurl: "/Track"
+url: "https://frostythedevv.github.io"
+
+# Build settings
+markdown: kramdown
+theme: minima
+
+# Exclude from processing
+exclude:
+  - README.md
+  - node_modules/
+  - package.json
+  - package-lock.json
+
+# GitHub Pages specific settings
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
