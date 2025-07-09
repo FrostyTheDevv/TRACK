@@ -26,8 +26,8 @@ export class StreamService {
     private constructor() {
         // Initialize scraper manager for platforms without official APIs
         this.scraperManager = new ScraperManager({
-            enableKick: true,
-            enableTikTok: true,
+            enableKick: false,    // Disable for Codespaces compatibility
+            enableTikTok: false,  // Disable for Codespaces compatibility
             scrapeInterval: 2,
             maxRetries: 3,
             timeout: 30000
