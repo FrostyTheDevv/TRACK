@@ -15,7 +15,7 @@ router.get('/', async (req: Request, res: Response) => {
 
         const subscriptions = await Subscription.findAll({
             where: filter,
-            include: [{ model: Streamer, as: 'streamer' }],
+            include: [{ model: Streamer, as: 'Streamer' }],
             order: [['createdAt', 'DESC']],
             limit: parseInt(limit as string),
             offset: parseInt(offset as string)

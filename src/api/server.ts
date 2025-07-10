@@ -34,7 +34,11 @@ export class APIServer {
         
         // CORS
         this.app.use(cors({
-            origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+            origin: [
+                process.env.CORS_ORIGIN || 'http://localhost:3000',
+                'null', // Allow file:// protocol requests
+                'http://localhost:3001'
+            ],
             credentials: true
         }));
 
