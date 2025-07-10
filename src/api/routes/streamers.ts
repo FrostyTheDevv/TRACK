@@ -22,7 +22,8 @@ router.get('/', async (req: Request, res: Response) => {
             offset: parseInt(offset as string)
         });
 
-        const total = await Streamer.count({ where: filter });
+        const totalCount = await Streamer.count({ where: filter });
+        const total = typeof totalCount === 'number' ? totalCount : 0;
 
         return res.json({
             streamers,

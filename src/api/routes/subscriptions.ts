@@ -13,13 +13,15 @@ router.get('/', async (req: Request, res: Response) => {
         if (guild_id) filter.guildId = guild_id;
         if (streamer_id) filter.streamerId = streamer_id;
 
-        const subscriptions = await Subscription.find(filter)
-            .populate('streamerId')
-            .sort({ createdAt: -1 })
-            .limit(parseInt(limit as string))
-            .skip(parseInt(offset as string));
+        const subscriptions = await Subscription.findAll({
+            where: filter,
+            include: [{ model: Streamer, as: 'streamer' }],
+            order: [['createdAt', 'DESC']],
+            limit: parseInt(limit as string),
+            offset: parseInt(offset as string)
+        });
 
-        const total = await Subscription.countDocuments(filter);
+        const total = await Subscription.count({ where: filter });
 
         return res.json({
             subscriptions,

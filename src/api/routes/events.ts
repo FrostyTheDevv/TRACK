@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { StreamEvent } from '../../models';
+import { Op, StreamEvent, Streamer } from '../../models';
 import { logger } from '../../utils/logger';
 
 const router = Router();
@@ -22,17 +22,18 @@ router.get('/', async (req: Request, res: Response) => {
         
         if (start_date || end_date) {
             filter.timestamp = {};
-            if (start_date) filter.timestamp.$gte = new Date(start_date as string);
-            if (end_date) filter.timestamp.$lte = new Date(end_date as string);
+            if (start_date) filter.timestamp[Op.gte] = new Date(start_date as string);
+            if (end_date) filter.timestamp[Op.lte] = new Date(end_date as string);
         }
 
-        const events = await StreamEvent.find(filter)
-            .populate('streamerId')
-            .sort({ timestamp: -1 })
-            .limit(parseInt(limit as string))
-            .skip(parseInt(offset as string));
+        const events = await StreamEvent.findAll({
+            where: filter,
+            order: [['timestamp', 'DESC']],
+            limit: parseInt(limit as string),
+            offset: parseInt(offset as string)
+        });
 
-        const total = await StreamEvent.countDocuments(filter);
+        const total = await StreamEvent.count({ where: filter });
 
         return res.json({
             events,
@@ -52,7 +53,12 @@ router.get('/', async (req: Request, res: Response) => {
 // GET /api/events/:id - Get specific event
 router.get('/:id', async (req: Request, res: Response) => {
     try {
-        const event = await StreamEvent.findById(req.params.id).populate('streamerId');
+        const event = await StreamEvent.findByPk(req.params.id, {
+            include: [{
+                model: Streamer,
+                as: 'streamer'
+            }]
+        });
         if (!event) {
             return res.status(404).json({ error: 'Event not found' });
         }
@@ -72,9 +78,11 @@ router.get('/streamer/:streamerId', async (req: Request, res: Response) => {
         const filter: any = { streamerId: req.params.streamerId };
         if (event_type) filter.eventType = event_type;
 
-        const events = await StreamEvent.find(filter)
-            .sort({ timestamp: -1 })
-            .limit(parseInt(limit as string));
+        const events = await StreamEvent.findAll({
+            where: filter,
+            order: [['timestamp', 'DESC']],
+            limit: parseInt(limit as string)
+        });
 
         return res.json(events);
     } catch (error) {
@@ -90,10 +98,13 @@ router.get('/stats/:streamerId', async (req: Request, res: Response) => {
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - parseInt(days as string));
 
-        const events = await StreamEvent.find({
-            streamerId: req.params.streamerId,
-            timestamp: { $gte: startDate }
-        }).sort({ timestamp: 1 });
+        const events = await StreamEvent.findAll({
+            where: {
+                streamerId: req.params.streamerId,
+                timestamp: { [Op.gte]: startDate }
+            },
+            order: [['timestamp', 'ASC']]
+        });
 
         // Calculate statistics
         const liveEvents = events.filter((e: any) => e.eventType === 'live');

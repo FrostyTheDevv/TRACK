@@ -230,5 +230,5 @@ if (databaseType === 'sqlite') {
     }
 }
 
-export { StreamEvent, Streamer, Subscription };
+export { Op, StreamEvent, Streamer, Subscription };
 
