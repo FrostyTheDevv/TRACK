@@ -3,6 +3,7 @@ import express from 'express';
 import helmet from 'helmet';
 import http from 'http';
 import morgan from 'morgan';
+import path from 'path';
 import { Server as SocketServer } from 'socket.io';
 import { logger } from '../utils/logger';
 
@@ -48,6 +49,11 @@ export class APIServer {
         // Body parsing
         this.app.use(express.json({ limit: '10mb' }));
         this.app.use(express.urlencoded({ extended: true }));
+
+        // Serve static dashboard files
+        const dashboardPath = path.join(__dirname, '../../dashboard/static');
+        this.app.use('/dashboard', express.static(dashboardPath));
+        logger.info(`Serving dashboard from: ${dashboardPath}`);
 
         // Health check
         this.app.get('/health', (req, res) => {
