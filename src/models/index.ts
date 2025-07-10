@@ -52,7 +52,10 @@ if (databaseType === 'sqlite') {
             });
         };
         Streamer.findByIdAndDelete = (id: string) => Streamer.destroy({ where: { id } });
-        Streamer.findOne = (query: any) => Streamer.findOne({ where: query });
+        Streamer.findOne = (query: any) => {
+            const originalFindOne = Object.getPrototypeOf(Streamer).findOne;
+            return originalFindOne.call(Streamer, { where: query });
+        };
         Streamer.findOneAndUpdate = (query: any, update: any, options: any = {}) => {
             return Streamer.update(update, { where: query, returning: true }).then((result: any) => {
                 if (options.upsert && result[0] === 0) {
@@ -120,7 +123,10 @@ if (databaseType === 'sqlite') {
             });
         };
         Subscription.findByIdAndDelete = (id: string) => Subscription.destroy({ where: { id } });
-        Subscription.findOne = (query: any) => Subscription.findOne({ where: query });
+        Subscription.findOne = (query: any) => {
+            const originalFindOne = Object.getPrototypeOf(Subscription).findOne;
+            return originalFindOne.call(Subscription, { where: query });
+        };
         Subscription.deleteMany = (query: any) => Subscription.destroy({ where: query });
         Subscription.countDocuments = (query: any) => Subscription.count({ where: query });
         
@@ -154,7 +160,10 @@ if (databaseType === 'sqlite') {
             });
         };
         StreamEvent.findByIdAndDelete = (id: string) => StreamEvent.destroy({ where: { id } });
-        StreamEvent.findOne = (query: any) => StreamEvent.findOne({ where: query });
+        StreamEvent.findOne = (query: any) => {
+            const originalFindOne = Object.getPrototypeOf(StreamEvent).findOne;
+            return originalFindOne.call(StreamEvent, { where: query });
+        };
         
         // Add instance methods to prototype
         if (!StreamEvent.prototype.toObject) {
@@ -230,5 +239,5 @@ if (databaseType === 'sqlite') {
     }
 }
 
-export { Op, StreamEvent, Streamer, Subscription };
+export { Op, Streamer, StreamEvent, Subscription };
 
