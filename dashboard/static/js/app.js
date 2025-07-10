@@ -5,6 +5,15 @@ class StreamTrackerDashboard {
         this.apiBaseUrl = CONFIG.API_BASE_URL;
         this.socketUrl = CONFIG.SOCKET_URL;
         this.socket = null;
+        
+        // Debug logging
+        console.log('Dashboard initialized with:', {
+            apiBaseUrl: this.apiBaseUrl,
+            socketUrl: this.socketUrl,
+            dataSource: CONFIG.DATA_SOURCE,
+            demoMode: CONFIG.DEMO_MODE
+        });
+        
         this.data = {
             streamers: [],
             channels: [],

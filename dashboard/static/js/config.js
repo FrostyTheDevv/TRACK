@@ -29,6 +29,14 @@ const CONFIG = {
     DEBUG: window.location.hostname === 'localhost'
 };
 
+// Debug logging
+console.log('CONFIG loaded:', {
+    DEMO_MODE: CONFIG.DEMO_MODE,
+    DATA_SOURCE: CONFIG.DATA_SOURCE,
+    API_BASE_URL: CONFIG.API_BASE_URL,
+    SOCKET_URL: CONFIG.SOCKET_URL
+});
+
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = CONFIG;
