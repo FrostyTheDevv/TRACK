@@ -1,18 +1,14 @@
 // Configuration for Stream Tracker Dashboard
 const CONFIG = {
     // Mode Configuration
-    DEMO_MODE: false, // Set to false for real data from GitHub Actions
+    DEMO_MODE: false, // Set to false for real data
     
     // Data source configuration
-    DATA_SOURCE: window.location.protocol === 'file:' ? 'api' : 'json-files', // Use API for local file:// viewing
-    API_BASE_URL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:'
-        ? 'http://localhost:3001/api'  // Local development
-        : null, // Not used in GitHub Pages mode
+    DATA_SOURCE: 'api', // Always use API when viewing locally
+    API_BASE_URL: 'http://localhost:3001/api', // Always use local API
     
-    // WebSocket Configuration (only used when connecting to API)
-    SOCKET_URL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:'
-        ? 'http://localhost:3001'  // Local development
-        : null, // Not used in GitHub Pages mode
+    // WebSocket Configuration
+    SOCKET_URL: 'http://localhost:3001', // Always use local WebSocket
     
     // Update intervals (in milliseconds)
     REFRESH_INTERVAL: 30000, // 30 seconds
