@@ -10,15 +10,16 @@ router.get('/export', async (req: Request, res: Response) => {
         logger.debug('Exporting data for GitHub Pages dashboard');
 
         // Get all streamers
-        const streamers = await Streamer.find();
+        const streamers = await Streamer.findAll();
         
         // Get all subscriptions with basic info
-        const subscriptions = await Subscription.find();
+        const subscriptions = await Subscription.findAll();
         
         // Get recent events (last 50)
-        const events = await StreamEvent.find()
-            .sort({ timestamp: -1 })
-            .limit(50);
+        const events = await StreamEvent.findAll({
+            order: [['timestamp', 'DESC']],
+            limit: 50
+        });
 
         // Calculate statistics
         const stats = {

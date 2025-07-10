@@ -51,14 +51,43 @@ class StreamTrackerDashboard {
                 e.preventDefault();
                 const page = link.dataset.page;
                 this.navigateToPage(page);
+                
+                // Close sidebar on mobile after navigation
+                if (window.innerWidth <= 768) {
+                    this.closeSidebar();
+                }
             });
         });
 
         // Sidebar toggle for mobile
         const sidebarToggle = document.querySelector('.sidebar-toggle');
-        if (sidebarToggle) {
+        const sidebarClose = document.querySelector('.sidebar-close');
+        const sidebar = document.querySelector('.sidebar');
+        const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+        
+        if (sidebarToggle && sidebar && sidebarBackdrop) {
+            // Toggle sidebar when button is clicked
             sidebarToggle.addEventListener('click', () => {
-                document.querySelector('.sidebar').classList.toggle('open');
+                this.toggleSidebar();
+            });
+            
+            // Close sidebar when close button is clicked
+            if (sidebarClose) {
+                sidebarClose.addEventListener('click', () => {
+                    this.closeSidebar();
+                });
+            }
+            
+            // Close sidebar when backdrop is clicked
+            sidebarBackdrop.addEventListener('click', () => {
+                this.closeSidebar();
+            });
+            
+            // Close sidebar with ESC key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+                    this.closeSidebar();
+                }
             });
         }
 
@@ -1053,6 +1082,41 @@ class StreamTrackerDashboard {
         });
     }
 
+    // Sidebar management methods
+    toggleSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        
+        if (sidebar.classList.contains('open')) {
+            this.closeSidebar();
+        } else {
+            this.openSidebar();
+        }
+    }
+    
+    openSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        
+        sidebar.classList.add('open');
+        backdrop.classList.add('show');
+        
+        // Prevent body scroll when sidebar is open
+        document.body.style.overflow = 'hidden';
+    }
+    
+    closeSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        
+        sidebar.classList.remove('open');
+        backdrop.classList.remove('show');
+        
+        // Restore body scroll
+        document.body.style.overflow = '';
+    }
+
+    // Utility methods
     // Utility functions
     getPlatformIcon(platform) {
         const icons = {

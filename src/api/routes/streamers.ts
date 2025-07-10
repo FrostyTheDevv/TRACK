@@ -15,12 +15,14 @@ router.get('/', async (req: Request, res: Response) => {
         if (platform) filter.platform = platform;
         if (live_only === 'true') filter.isLive = true;
 
-        const streamers = await Streamer.find(filter)
-            .sort({ lastChecked: -1 })
-            .limit(parseInt(limit as string))
-            .skip(parseInt(offset as string));
+        const streamers = await Streamer.findAll({
+            where: filter,
+            order: [['lastChecked', 'DESC']],
+            limit: parseInt(limit as string),
+            offset: parseInt(offset as string)
+        });
 
-        const total = await Streamer.countDocuments(filter);
+        const total = await Streamer.count({ where: filter });
 
         return res.json({
             streamers,
