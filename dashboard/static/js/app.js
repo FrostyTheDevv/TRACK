@@ -31,6 +31,12 @@ class StreamTrackerDashboard {
     }
 
     init() {
+        // Debug: Show actual config values on page
+        const debugInfo = document.getElementById('debug-info');
+        if (debugInfo) {
+            debugInfo.textContent = `API: ${CONFIG.API_BASE_URL} | Source: ${CONFIG.DATA_SOURCE}`;
+        }
+        
         // Set demo mode indicator if in demo mode
         if (CONFIG.DEMO_MODE) {
             const statusIndicator = document.getElementById('status-indicator');
