@@ -32,21 +32,42 @@ export class ScraperManager {
 
   async init(): Promise<void> {
     try {
+      logger.info('Initializing scraper manager...');
+      
       if (this.config.enableKick) {
-        await this.kickScraper.init();
-        logger.info('Kick scraper initialized');
+        try {
+          await this.kickScraper.init();
+          logger.info('Kick scraper initialized successfully');
+        } catch (error) {
+          logger.error('Failed to initialize Kick scraper, disabling it:', error);
+          this.config.enableKick = false;
+        }
       }
 
       if (this.config.enableTikTok) {
-        await this.tiktokScraper.init();
-        logger.info('TikTok scraper initialized');
+        try {
+          await this.tiktokScraper.init();
+          logger.info('TikTok scraper initialized successfully');
+        } catch (error) {
+          logger.error('Failed to initialize TikTok scraper, disabling it:', error);
+          this.config.enableTikTok = false;
+        }
       }
 
       this.isRunning = true;
-      logger.info('Scraper manager initialized successfully');
+      
+      if (!this.config.enableKick && !this.config.enableTikTok) {
+        logger.warn('All scrapers disabled due to initialization failures. Scraper manager will run with limited functionality.');
+      }
+      
+      logger.info('Scraper manager initialized (Kick: ' + this.config.enableKick + ', TikTok: ' + this.config.enableTikTok + ')');
     } catch (error) {
       logger.error('Failed to initialize scraper manager:', error);
-      throw error;
+      // Don't throw error, just disable scrapers
+      this.config.enableKick = false;
+      this.config.enableTikTok = false;
+      this.isRunning = true;
+      logger.warn('Scraper manager initialized in fallback mode (all scrapers disabled)');
     }
   }
 

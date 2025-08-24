@@ -6,152 +6,128 @@ const router = Router();
 
 // GET /api/subscriptions - Get all subscriptions
 router.get('/', async (req: Request, res: Response) => {
-    try {
-        const { guild_id, streamer_id, limit = 50, offset = 0 } = req.query;
-        
-        const filter: any = {};
-        if (guild_id) filter.guildId = guild_id;
-        if (streamer_id) filter.streamerId = streamer_id;
+  try {
+    const { guild_id, streamer_id, limit = 50, offset = 0 } = req.query;
 
-        const subscriptions = await Subscription.findAll({
-            where: filter,
-            include: [{ model: Streamer, as: 'Streamer' }],
-            order: [['createdAt', 'DESC']],
-            limit: parseInt(limit as string),
-            offset: parseInt(offset as string)
-        });
+    const filter: Record<string, any> = {};
+    if (guild_id)   filter.guildId = guild_id;
+    if (streamer_id) filter.streamerId = streamer_id;
 
-        const total = await Subscription.count({ where: filter });
+    const lim = parseInt(limit as string, 10);
+    const off = parseInt(offset as string, 10);
 
-        return res.json({
-            subscriptions,
-            pagination: {
-                total,
-                limit: parseInt(limit as string),
-                offset: parseInt(offset as string),
-                hasMore: total > parseInt(offset as string) + parseInt(limit as string)
-            }
-        });
-    } catch (error) {
-        logger.error('Error fetching subscriptions:', error);
-        return res.status(500).json({ error: 'Failed to fetch subscriptions' });
-    }
+    const subscriptions = await Subscription.find(filter)
+      .populate('streamerId')
+      .sort({ createdAt: -1 })
+      .limit(lim)
+      .skip(off);
+
+    const total = await Subscription.countDocuments(filter);
+
+    return res.json({
+      data: subscriptions,
+      pagination: {
+        total,
+        limit: lim,
+        offset: off,
+        hasMore: total > off + lim
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching subscriptions:', error);
+    return res.status(500).json({ error: 'Failed to fetch subscriptions' });
+  }
 });
 
 // GET /api/subscriptions/:id - Get specific subscription
 router.get('/:id', async (req: Request, res: Response) => {
-    try {
-        const subscription = await Subscription.findById(req.params.id).populate('streamerId');
-        if (!subscription) {
-            return res.status(404).json({ error: 'Subscription not found' });
-        }
-
-        return res.json(subscription);
-    } catch (error) {
-        logger.error('Error fetching subscription:', error);
-        return res.status(500).json({ error: 'Failed to fetch subscription' });
-    }
+  try {
+    const subscription = await Subscription.findById(req.params.id).populate('streamerId');
+    if (!subscription) return res.status(404).json({ error: 'Subscription not found' });
+    return res.json({ data: subscription });
+  } catch (error) {
+    logger.error('Error fetching subscription:', error);
+    return res.status(500).json({ error: 'Failed to fetch subscription' });
+  }
 });
 
 // POST /api/subscriptions - Create new subscription
 router.post('/', async (req: Request, res: Response) => {
-    try {
-        const { guildId, channelId, streamerId, notificationMessage, mentionRole, createdBy } = req.body;
+  try {
+    const { guildId, channelId, streamerId, notificationMessage, mentionRole, createdBy } = req.body;
 
-        if (!guildId || !channelId || !streamerId || !createdBy) {
-            return res.status(400).json({ 
-                error: 'Guild ID, channel ID, streamer ID, and created by are required' 
-            });
-        }
-
-        // Check if streamer exists
-        const streamer = await Streamer.findById(streamerId);
-        if (!streamer) {
-            return res.status(404).json({ error: 'Streamer not found' });
-        }
-
-        // Check if subscription already exists
-        const existingSubscription = await Subscription.findOne({
-            guildId,
-            channelId,
-            streamerId
-        });
-
-        if (existingSubscription) {
-            return res.status(409).json({ 
-                error: 'Subscription already exists',
-                subscription: existingSubscription
-            });
-        }
-
-        // Create subscription
-        const subscription = new Subscription({
-            guildId,
-            channelId,
-            streamerId,
-            notificationMessage,
-            mentionRole,
-            createdBy
-        });
-
-        await subscription.save();
-        await subscription.populate('streamerId');
-
-        return res.status(201).json(subscription);
-    } catch (error) {
-        logger.error('Error creating subscription:', error);
-        return res.status(500).json({ error: 'Failed to create subscription' });
+    if (!guildId || !channelId || !streamerId || !createdBy) {
+      return res.status(400).json({
+        error: 'Guild ID, channel ID, streamer ID, and created by are required'
+      });
     }
+
+    // Check if streamer exists
+    const streamer = await Streamer.findById(streamerId);
+    if (!streamer) return res.status(404).json({ error: 'Streamer not found' });
+
+    // Prevent duplicates
+    const existing = await Subscription.findOne({ guildId, channelId, streamerId });
+    if (existing) {
+      return res.status(409).json({ error: 'Subscription already exists', data: existing });
+    }
+
+    const subscription = new Subscription({
+      guildId, channelId, streamerId, notificationMessage, mentionRole, createdBy
+    });
+
+    await subscription.save();
+    await subscription.populate('streamerId');
+
+    return res.status(201).json({ data: subscription });
+  } catch (error) {
+    logger.error('Error creating subscription:', error);
+    return res.status(500).json({ error: 'Failed to create subscription' });
+  }
 });
 
 // PUT /api/subscriptions/:id - Update subscription
 router.put('/:id', async (req: Request, res: Response) => {
-    try {
-        const subscription = await Subscription.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            { new: true, runValidators: true }
-        ).populate('streamerId');
+  try {
+    const subscription = await Subscription.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    ).populate('streamerId');
 
-        if (!subscription) {
-            return res.status(404).json({ error: 'Subscription not found' });
-        }
-
-        return res.json(subscription);
-    } catch (error) {
-        logger.error('Error updating subscription:', error);
-        return res.status(500).json({ error: 'Failed to update subscription' });
-    }
+    if (!subscription) return res.status(404).json({ error: 'Subscription not found' });
+    return res.json({ data: subscription });
+  } catch (error) {
+    logger.error('Error updating subscription:', error);
+    return res.status(500).json({ error: 'Failed to update subscription' });
+  }
 });
 
 // DELETE /api/subscriptions/:id - Delete subscription
 router.delete('/:id', async (req: Request, res: Response) => {
-    try {
-        const subscription = await Subscription.findByIdAndDelete(req.params.id);
-        if (!subscription) {
-            return res.status(404).json({ error: 'Subscription not found' });
-        }
-
-        return res.json({ message: 'Subscription deleted successfully' });
-    } catch (error) {
-        logger.error('Error deleting subscription:', error);
-        return res.status(500).json({ error: 'Failed to delete subscription' });
-    }
+  try {
+    const subscription = await Subscription.findByIdAndDelete(req.params.id);
+    if (!subscription) return res.status(404).json({ error: 'Subscription not found' });
+    return res.json({ ok: true });
+  } catch (error) {
+    logger.error('Error deleting subscription:', error);
+    return res.status(500).json({ error: 'Failed to delete subscription' });
+  }
 });
 
 // GET /api/subscriptions/guild/:guildId - Get subscriptions for a guild
 router.get('/guild/:guildId', async (req: Request, res: Response) => {
-    try {
-        const subscriptions = await Subscription.find({ 
-            guildId: req.params.guildId,
-            isActive: true
-        }).populate('streamerId');
+  try {
+    const subscriptions = await Subscription.find({
+      guildId: req.params.guildId,
+      isActive: true
+    }).populate('streamerId');
 
-        return res.json(subscriptions);
-    } catch (error) {
-        logger.error('Error fetching guild subscriptions:', error);
-        return res.status(500).json({ error: 'Failed to fetch guild subscriptions' });
-    }
+    return res.json({ data: subscriptions });
+  } catch (error) {
+    logger.error('Error fetching guild subscriptions:', error);
+    return res.status(500).json({ error: 'Failed to fetch guild subscriptions' });
+  }
 });
 
 export { router as subscriptionsRouter };

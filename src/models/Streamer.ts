@@ -39,6 +39,16 @@ const StreamerSchema = new Schema<IStreamer>({
     collection: 'streamers'
 });
 
+// Add virtual so frontend sees `lastSeen` mapped from lastChecked
+StreamerSchema.virtual('lastSeen').get(function (this: IStreamer) {
+    return this.lastChecked;
+  });
+  
+  // Ensure virtuals are included in JSON responses
+  StreamerSchema.set('toJSON', { virtuals: true });
+  StreamerSchema.set('toObject', { virtuals: true });
+
+
 // Create compound index for platform and platformId
 StreamerSchema.index({ platform: 1, platformId: 1 }, { unique: true });
 StreamerSchema.index({ isLive: 1 });

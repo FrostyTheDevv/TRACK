@@ -1,275 +1,254 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stream Tracker Dashboard</title>
-    <link rel="stylesheet" href="css/style.css?v=2">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="js/config.js?v=2"></script>
-    <script src="js/demo-data.js?v=2"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stream Tracker Dashboard</title>
+
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+
+  <!-- MUST come before config.js so API_BASE is available -->
+  <script src="/runtime-config.js"></script>
+
+  <!-- Your config now reads APP_CONFIG.API_BASE and falls back to same-origin -->
+  <script src="js/config.js"></script>
+
+  <!-- Optional demo data (safe to keep) -->
+  <script src="js/demo-data.js"></script>
 </head>
 <body>
-    <div class="app">
-        <!-- Mobile Sidebar Backdrop -->
-        <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
-        
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <i class="fas fa-broadcast-tower"></i>
-                    <span>Stream Tracker</span>
-                </div>
-                <button class="sidebar-close" title="Close sidebar" aria-label="Close sidebar">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <nav class="sidebar-nav">
-                <ul>
-                    <li><a href="#dashboard" class="nav-link active" data-page="dashboard">
-                        <i class="fas fa-tachometer-alt"></i> Dashboard
-                    </a></li>
-                    <li><a href="#streamers" class="nav-link" data-page="streamers">
-                        <i class="fas fa-users"></i> Streamers
-                    </a></li>
-                    <li><a href="#channels" class="nav-link" data-page="channels">
-                        <i class="fas fa-hashtag"></i> Channels
-                    </a></li>
-                    <li><a href="#settings" class="nav-link" data-page="settings">
-                        <i class="fas fa-cog"></i> Settings
-                    </a></li>
-                    <li><a href="#logs" class="nav-link" data-page="logs">
-                        <i class="fas fa-file-alt"></i> Logs
-                    </a></li>
-                </ul>
-            </nav>
-        </aside>
-
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Header -->
-            <header class="header">
-                <div class="header-left">
-                    <button class="sidebar-toggle" title="Toggle sidebar navigation" aria-label="Toggle sidebar navigation">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <h1 class="page-title">Dashboard</h1>
-                </div>
-                <div class="header-right">
-                    <div class="debug-info" id="debug-info" style="background: #ff6b6b; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; margin-right: 10px;">
-                        Loading...
-                    </div>
-                    <div class="status-indicator" id="status-indicator">
-                        <span class="status-dot online"></span>
-                        <span id="status-text">Bot Online</span>
-                    </div>
-                    <button class="refresh-btn" title="Refresh dashboard data" aria-label="Refresh dashboard data">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
-                </div>
-            </header>
-
-            <!-- Dashboard Page -->
-            <div class="page active" id="dashboard">
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-users"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3>Tracked Streamers</h3>
-                            <p class="stat-number" id="total-streamers">0</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-video"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3>Live Now</h3>
-                            <p class="stat-number" id="live-streamers">0</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-bell"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3>Notifications Sent</h3>
-                            <p class="stat-number" id="notifications-sent">0</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-hashtag"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3>Active Channels</h3>
-                            <p class="stat-number" id="active-channels">0</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="dashboard-content">
-                    <div class="live-streams">
-                        <h2>Currently Live</h2>
-                        <div class="live-streams-list" id="live-streams-list">
-                            <!-- Live streams will be populated here -->
-                        </div>
-                    </div>
-
-                    <div class="recent-activity">
-                        <h2>Recent Activity</h2>
-                        <div class="activity-list" id="activity-list">
-                            <!-- Recent activity will be populated here -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Streamers Page -->
-            <div class="page" id="streamers">
-                <div class="page-header">
-                    <h2>Manage Streamers</h2>
-                    <button class="btn btn-primary" id="add-streamer-btn">
-                        <i class="fas fa-plus"></i> Add Streamer
-                    </button>
-                </div>
-                <div class="streamers-grid" id="streamers-grid">
-                    <!-- Streamers will be populated here -->
-                </div>
-            </div>
-
-            <!-- Channels Page -->
-            <div class="page" id="channels">
-                <div class="page-header">
-                    <h2>Discord Channels</h2>
-                    <button class="btn btn-primary" id="add-channel-btn">
-                        <i class="fas fa-plus"></i> Add Channel
-                    </button>
-                </div>
-                <div class="channels-list" id="channels-list">
-                    <!-- Channels will be populated here -->
-                </div>
-            </div>
-
-            <!-- Settings Page -->
-            <div class="page" id="settings">
-                <div class="settings-container">
-                    <h2>Bot Settings</h2>
-                    <form class="settings-form" id="settings-form">
-                        <div class="form-group">
-                            <label for="check-interval">Stream Check Interval (minutes)</label>
-                            <input type="number" id="check-interval" min="1" max="60" value="5">
-                        </div>
-                        <div class="form-group">
-                            <label for="notification-template">Notification Template</label>
-                            <textarea id="notification-template" rows="4" placeholder="🔴 **{streamer}** is now live on {platform}!&#10;**Game:** {game}&#10;**Title:** {title}&#10;**Link:** {url}"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="mention-everyone"> Mention @everyone in notifications
-                            </label>
-                        </div>
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="delete-offline"> Delete notifications when stream ends
-                            </label>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Save Settings</button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Logs Page -->
-            <div class="page" id="logs">
-                <div class="logs-container">
-                    <h2>Bot Logs</h2>
-                    <div class="logs-controls">
-                        <select id="log-level" title="Filter logs by level" aria-label="Filter logs by level">
-                            <option value="all">All Levels</option>
-                            <option value="error">Errors</option>
-                            <option value="warn">Warnings</option>
-                            <option value="info">Info</option>
-                        </select>
-                        <button class="btn btn-secondary" id="clear-logs">Clear Logs</button>
-                    </div>
-                    <div class="logs-content" id="logs-content">
-                        <!-- Logs will be populated here -->
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Modals -->
-    <div class="modal" id="add-streamer-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Add Streamer</h3>
-                <button class="modal-close" title="Close modal" aria-label="Close modal">&times;</button>
-            </div>
-            <form class="modal-body" id="add-streamer-form">
-                <div class="form-group">
-                    <label for="platform-select">Platform</label>
-                    <select id="platform-select" required>
-                        <option value="">Select Platform</option>
-                        <option value="twitch">Twitch</option>
-                        <option value="youtube">YouTube</option>
-                        <option value="tiktok">TikTok</option>
-                        <option value="kick">Kick</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="username-input">Username</label>
-                    <input type="text" id="username-input" required placeholder="Enter username">
-                </div>
-                <div class="form-group">
-                    <label for="display-name-input">Display Name (optional)</label>
-                    <input type="text" id="display-name-input" placeholder="Custom display name">
-                </div>
-                <div class="form-group">
-                    <label for="channel-select">Notification Channel</label>
-                    <select id="channel-select" required>
-                        <option value="">Select Channel</option>
-                    </select>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Add Streamer</button>
-                </div>
-            </form>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <i class="fas fa-broadcast-tower"></i>
+          <span>Stream Tracker</span>
         </div>
-    </div>
+      </div>
+      <nav class="sidebar-nav">
+        <ul>
+          <li><a href="#dashboard" class="nav-link active" data-page="dashboard">
+            <i class="fas fa-tachometer-alt"></i> Dashboard
+          </a></li>
+          <li><a href="#streamers" class="nav-link" data-page="streamers">
+            <i class="fas fa-users"></i> Streamers
+          </a></li>
+          <li><a href="#channels" class="nav-link" data-page="channels">
+            <i class="fas fa-hashtag"></i> Channels
+          </a></li>
+          <li><a href="#settings" class="nav-link" data-page="settings">
+            <i class="fas fa-cog"></i> Settings
+          </a></li>
+          <li><a href="#logs" class="nav-link" data-page="logs">
+            <i class="fas fa-file-alt"></i> Logs
+          </a></li>
+        </ul>
+      </nav>
+    </aside>
 
-    <div class="modal" id="add-channel-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Add Discord Channel</h3>
-                <button class="modal-close" title="Close modal" aria-label="Close modal">&times;</button>
-            </div>
-            <form class="modal-body" id="add-channel-form">
-                <div class="form-group">
-                    <label for="channel-id-input">Channel ID</label>
-                    <input type="text" id="channel-id-input" required placeholder="Discord channel ID">
-                </div>
-                <div class="form-group">
-                    <label for="channel-name-input">Channel Name</label>
-                    <input type="text" id="channel-name-input" required placeholder="Channel name">
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Add Channel</button>
-                </div>
-            </form>
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-left">
+          <button class="sidebar-toggle" title="Toggle sidebar navigation" aria-label="Toggle sidebar navigation">
+            <i class="fas fa-bars"></i>
+          </button>
+          <h1 class="page-title">Dashboard</h1>
         </div>
-    </div>
+        <div class="header-right">
+          <div class="status-indicator" id="status-indicator">
+            <span class="status-dot online"></span>
+            <span id="status-text">Bot Online</span>
+          </div>
+          <button class="refresh-btn" title="Refresh dashboard data" aria-label="Refresh dashboard data">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+        </div>
+      </header>
 
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="js/app.js?v=2"></script>
+      <!-- Dashboard Page -->
+      <div class="page active" id="dashboard">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-content">
+              <h3>Tracked Streamers</h3>
+              <p class="stat-number" id="total-streamers">0</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-video"></i></div>
+            <div class="stat-content">
+              <h3>Live Now</h3>
+              <p class="stat-number" id="live-streamers">0</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-bell"></i></div>
+            <div class="stat-content">
+              <h3>Notifications Sent</h3>
+              <p class="stat-number" id="notifications-sent">0</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-hashtag"></i></div>
+            <div class="stat-content">
+              <h3>Active Channels</h3>
+              <p class="stat-number" id="active-channels">0</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-content">
+          <div class="live-streams">
+            <h2>Currently Live</h2>
+            <div class="live-streams-list" id="live-streams-list"></div>
+          </div>
+          <div class="recent-activity">
+            <h2>Recent Activity</h2>
+            <div class="activity-list" id="activity-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Streamers Page -->
+      <div class="page" id="streamers">
+        <div class="page-header">
+          <h2>Manage Streamers</h2>
+          <button class="btn btn-primary" id="add-streamer-btn">
+            <i class="fas fa-plus"></i> Add Streamer
+          </button>
+        </div>
+        <div class="streamers-grid" id="streamers-grid"></div>
+      </div>
+
+      <!-- Channels Page -->
+      <div class="page" id="channels">
+        <div class="page-header">
+          <h2>Discord Channels</h2>
+          <button class="btn btn-primary" id="add-channel-btn">
+            <i class="fas fa-plus"></i> Add Channel
+          </button>
+        </div>
+        <div class="channels-list" id="channels-list"></div>
+      </div>
+
+      <!-- Settings Page -->
+      <div class="page" id="settings">
+        <div class="settings-container">
+          <h2>Bot Settings</h2>
+          <form class="settings-form" id="settings-form">
+            <div class="form-group">
+              <label for="check-interval">Stream Check Interval (minutes)</label>
+              <input type="number" id="check-interval" min="1" max="60" value="5"/>
+            </div>
+            <div class="form-group">
+              <label for="notification-template">Notification Template</label>
+              <textarea id="notification-template" rows="4" placeholder="🔴 **{streamer}** is now live on {platform}!&#10;**Game:** {game}&#10;**Title:** {title}&#10;**Link:** {url}"></textarea>
+            </div>
+            <div class="form-group">
+              <label><input type="checkbox" id="mention-everyone"/> Mention @everyone in notifications</label>
+            </div>
+            <div class="form-group">
+              <label><input type="checkbox" id="delete-offline"/> Delete notifications when stream ends</label>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Logs Page -->
+      <div class="page" id="logs">
+        <div class="logs-container">
+          <h2>Bot Logs</h2>
+          <div class="logs-controls">
+            <select id="log-level" title="Filter logs by level" aria-label="Filter logs by level">
+              <option value="all">All Levels</option>
+              <option value="error">Errors</option>
+              <option value="warn">Warnings</option>
+              <option value="info">Info</option>
+            </select>
+            <button class="btn btn-secondary" id="clear-logs">Clear Logs</button>
+          </div>
+          <div class="logs-content" id="logs-content"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modals -->
+  <div class="modal" id="add-streamer-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Add Streamer</h3>
+        <button class="modal-close" title="Close modal" aria-label="Close modal">&times;</button>
+      </div>
+      <form class="modal-body" id="add-streamer-form">
+        <div class="form-group">
+          <label for="platform-select">Platform</label>
+          <select id="platform-select" required>
+            <option value="">Select Platform</option>
+            <option value="twitch">Twitch</option>
+            <option value="youtube">YouTube</option>
+            <option value="tiktok">TikTok</option>
+            <option value="kick">Kick</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="username-input">Username</label>
+          <input type="text" id="username-input" required placeholder="Enter username"/>
+        </div>
+        <div class="form-group">
+          <label for="display-name-input">Display Name (optional)</label>
+          <input type="text" id="display-name-input" placeholder="Custom display name"/>
+        </div>
+        <div class="form-group">
+          <label for="channel-select">Notification Channel</label>
+          <select id="channel-select" required>
+            <option value="">Select Channel</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Streamer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="add-channel-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Add Discord Channel</h3>
+        <button class="modal-close" title="Close modal" aria-label="Close modal">&times;</button>
+      </div>
+      <form class="modal-body" id="add-channel-form">
+        <div class="form-group">
+          <label for="channel-id-input">Channel ID</label>
+          <input type="text" id="channel-id-input" required placeholder="Discord channel ID"/>
+        </div>
+        <div class="form-group">
+          <label for="channel-name-input">Channel Name</label>
+          <input type="text" id="channel-name-input" required placeholder="Channel name"/>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Channel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Socket.IO (CDN is fine; client will point to CONFIG.SOCKET_URL) -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+  <!-- Main app -->
+  <script src="js/app.js"></script>
 </body>
 </html>

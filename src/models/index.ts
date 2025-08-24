@@ -1,243 +1,208 @@
+// src/models/index.ts
 // Compatibility layer for database models
-// This file exports the appropriate models based on the database type
+// Exports the appropriate models based on DATABASE_TYPE and shims Mongoose-like APIs
 
 const databaseType = process.env.DATABASE_TYPE || 'memory';
 
 let Streamer: any;
 let Subscription: any;
 let StreamEvent: any;
+let Sequelize: any;
 let Op: any;
 
 if (databaseType === 'sqlite') {
-    // Use SQLite models
-    const sqliteModels = require('../utils/database-sqlite');
-    Op = require('sequelize').Op;
-    Streamer = sqliteModels.Streamer;
-    Subscription = sqliteModels.Subscription;
-    StreamEvent = sqliteModels.StreamEvent;
+  const sqliteModels = require('../utils/database-sqlite');
+  Sequelize = require('sequelize');
+  Op = Sequelize.Op;
+  Streamer = sqliteModels.Streamer;
+  Subscription = sqliteModels.Subscription;
+  StreamEvent = sqliteModels.StreamEvent;
 } else if (databaseType === 'memory') {
-    // Use in-memory models
-    const memoryModels = require('../utils/database-memory');
-    Streamer = memoryModels.Streamer;
-    Subscription = memoryModels.Subscription;
-    StreamEvent = memoryModels.StreamEvent;
+  const memoryModels = require('../utils/database-memory');
+  Streamer = memoryModels.Streamer;
+  Subscription = memoryModels.Subscription;
+  StreamEvent = memoryModels.StreamEvent;
 } else {
-    // Use MongoDB models
-    Streamer = require('./Streamer').Streamer;
-    Subscription = require('./Subscription').Subscription;
-    StreamEvent = require('./StreamEvent').StreamEvent;
+  // Mongo/Mongoose models – keep as-is; make sure your Streamer.ts includes the virtuals
+  Streamer = require('./Streamer').Streamer;
+  Subscription = require('./Subscription').Subscription;
+  StreamEvent = require('./StreamEvent').StreamEvent;
 }
 
-// Add compatibility methods for SQLite/Sequelize models
+// ─────────────────────────────────────────────────────────────
+// Helpers to make Sequelize look like Mongoose (chainable query)
+// ─────────────────────────────────────────────────────────────
+function normalizeWhere(where: any) {
+  if (!where || typeof where !== 'object') return where;
+
+  const out: any = {};
+  for (const key of Object.keys(where)) {
+    const val = where[key];
+    if (val && typeof val === 'object' && ('$in' in val)) {
+      out[key] = { [Op.in]: val.$in };
+    } else {
+      out[key] = val;
+    }
+  }
+  return out;
+}
+
+function makeQuery(model: any, where: any = {}, baseOptions: any = {}) {
+  // Build a chainable, awaitable object similar to a Mongoose Query.
+  const state: any = {
+    where: normalizeWhere(where),
+    order: undefined,
+    limit: undefined,
+    offset: undefined,
+    include: [],
+    raw: false,
+    ...baseOptions,
+  };
+
+  const q: any = {
+    sort(sortObj: Record<string, 1 | -1>) {
+      // { field: -1 } -> [['field','DESC']]
+      const arr = Object.entries(sortObj || {}).map(([k, v]) => [k, v === -1 ? 'DESC' : 'ASC']);
+      state.order = arr.length ? arr : undefined;
+      return q;
+    },
+    limit(n: number) {
+      state.limit = Number(n);
+      return q;
+    },
+    skip(n: number) {
+      state.offset = Number(n);
+      return q;
+    },
+    populate(field: string) {
+      // Support only 'streamerId' as used by routes
+      state.include = state.include || [];
+      if (field === 'streamerId' && model === Subscription && typeof Streamer?.findAll === 'function') {
+        state.include.push({ model: Streamer, as: 'streamerId' });
+      }
+      return q;
+    },
+    // Mongoose-like thenable: awaiting the query executes it
+    then(onFulfilled: any, onRejected: any) {
+      const opts: any = {
+        where: state.where,
+        order: state.order,
+        limit: state.limit,
+        offset: state.offset,
+        include: state.include?.length ? state.include : undefined,
+      };
+      return model.findAll(opts).then(onFulfilled, onRejected);
+    },
+    catch(onRejected: any) {
+      return q.then(undefined, onRejected);
+    },
+    // convenience to mirror mongoose
+    exec() {
+      return q.then((r: any) => r);
+    },
+  };
+  return q;
+}
+
+// Add instance helpers safely (avoid recursion)
+function addInstanceHelpers(model: any) {
+  if (!model || !model.prototype) return;
+
+  if (!model.prototype.toObject) {
+    model.prototype.toObject = function () {
+      return this.get ? this.get({ plain: true }) : { ...this };
+    };
+  }
+  if (!model.prototype.deleteOne) {
+    model.prototype.deleteOne = function () {
+      return this.destroy ? this.destroy() : undefined;
+    };
+  }
+  // DO NOT override .save() – Sequelize instances already have it.
+}
+
+// ─────────────────────────────────────────────────────────────
+// Apply shims for SQLite only
+// ─────────────────────────────────────────────────────────────
 if (databaseType === 'sqlite') {
-    // Add Mongoose-like methods to Sequelize models for compatibility
-    if (Streamer && !Streamer.find) {
-        Streamer.find = (query: any = {}) => {
-            // Handle MongoDB-style $in operator
-            const where = { ...query };
-            Object.keys(where).forEach(key => {
-                if (typeof where[key] === 'object' && where[key].$in) {
-                    where[key] = where[key].$in;
-                }
-            });
-            return Streamer.findAll({ where });
-        };
-        Streamer.findById = (id: string) => Streamer.findByPk(id);
-        Streamer.findByIdAndUpdate = (id: string, update: any, options: any = {}) => {
-            return Streamer.update(update, { where: { id }, returning: true }).then((result: any) => {
-                if (options.new) {
-                    return Streamer.findByPk(id);
-                }
-                return result[1] ? result[1][0] : null;
-            });
-        };
-        Streamer.findByIdAndDelete = (id: string) => Streamer.destroy({ where: { id } });
-        Streamer.findOne = (query: any) => {
-            const originalFindOne = Object.getPrototypeOf(Streamer).findOne;
-            return originalFindOne.call(Streamer, { where: query });
-        };
-        Streamer.findOneAndUpdate = (query: any, update: any, options: any = {}) => {
-            return Streamer.update(update, { where: query, returning: true }).then((result: any) => {
-                if (options.upsert && result[0] === 0) {
-                    return Streamer.create({ ...query, ...update });
-                }
-                if (options.new) {
-                    return Streamer.findOne({ where: query });
-                }
-                return result[1] ? result[1][0] : null;
-            });
-        };
-        
-        // Add instance methods to prototype
-        if (!Streamer.prototype.toObject) {
-            Streamer.prototype.toObject = function() {
-                return this.get({ plain: true });
-            };
-        }
-        if (!Streamer.prototype.deleteOne) {
-            Streamer.prototype.deleteOne = function() {
-                return this.destroy();
-            };
-        }
-        if (!Streamer.prototype.save) {
-            Streamer.prototype.save = function() {
-                return this.save();
-            };
-        }
-    }
+  // Streamer
+  if (Streamer && !Streamer.find) {
+    Streamer.find = (query: any = {}) => makeQuery(Streamer, query);
+    Streamer.findOne = (query: any = {}) =>
+      Streamer.findAll({ where: normalizeWhere(query), limit: 1 }).then((rows: any[]) => rows[0] || null);
+    Streamer.findById = (id: string) => Streamer.findByPk(id);
+    Streamer.findByIdAndUpdate = async (id: string, update: any, options: any = {}) => {
+      await Streamer.update(update, { where: { id } });
+      return options.new ? Streamer.findByPk(id) : null;
+    };
+    Streamer.findByIdAndDelete = (id: string) => Streamer.destroy({ where: { id } });
+    Streamer.findOneAndUpdate = async (query: any, update: any, options: any = {}) => {
+      const where = normalizeWhere(query);
+      const [count] = await Streamer.update(update, { where });
+      if (options.upsert && count === 0) return Streamer.create({ ...query, ...update });
+      return options.new ? Streamer.findOne({ where }) : null;
+    };
+    Streamer.countDocuments = (query: any = {}) => Streamer.count({ where: normalizeWhere(query) });
+    // naive aggregate for platform stats
+    Streamer.aggregate = async (pipeline: any[]) => {
+      const grouping = pipeline?.[0]?.$group;
+      if (grouping && grouping._id === '$platform') {
+        const rows = await Streamer.findAll({
+          attributes: ['platform', [Streamer.sequelize.fn('COUNT', '*'), 'count']],
+          group: ['platform'],
+          order: [[Streamer.sequelize.literal('count'), 'DESC']],
+          raw: true,
+        });
+        return rows.map((r: any) => ({ _id: r.platform, count: Number(r.count) }));
+      }
+      return [];
+    };
 
-    if (Subscription && !Subscription.find) {
-        Subscription.find = (query: any = {}) => {
-            const findResult = Subscription.findAll({ where: query });
-            // Add populate method to the result
-            findResult.populate = (field: string) => {
-                if (field === 'streamerId') {
-                    return Subscription.findAll({ 
-                        where: query,
-                        include: [{ model: Streamer, as: 'streamerId' }]
-                    });
-                }
-                return findResult;
-            };
-            return findResult;
-        };
-        Subscription.findById = (id: string) => {
-            const findResult = Subscription.findByPk(id);
-            // Add populate method to the result
-            findResult.populate = (field: string) => {
-                if (field === 'streamerId') {
-                    return Subscription.findByPk(id, {
-                        include: [{ model: Streamer, as: 'streamerId' }]
-                    });
-                }
-                return findResult;
-            };
-            return findResult;
-        };
-        Subscription.findByIdAndUpdate = (id: string, update: any, options: any = {}) => {
-            return Subscription.update(update, { where: { id }, returning: true }).then((result: any) => {
-                if (options.new) {
-                    return Subscription.findByPk(id);
-                }
-                return result[1] ? result[1][0] : null;
-            });
-        };
-        Subscription.findByIdAndDelete = (id: string) => Subscription.destroy({ where: { id } });
-        Subscription.findOne = (query: any) => {
-            const originalFindOne = Object.getPrototypeOf(Subscription).findOne;
-            return originalFindOne.call(Subscription, { where: query });
-        };
-        Subscription.deleteMany = (query: any) => Subscription.destroy({ where: query });
-        Subscription.countDocuments = (query: any) => Subscription.count({ where: query });
-        
-        // Add instance methods to prototype
-        if (!Subscription.prototype.toObject) {
-            Subscription.prototype.toObject = function() {
-                return this.get({ plain: true });
-            };
-        }
-        if (!Subscription.prototype.deleteOne) {
-            Subscription.prototype.deleteOne = function() {
-                return this.destroy();
-            };
-        }
-        if (!Subscription.prototype.save) {
-            Subscription.prototype.save = function() {
-                return this.save();
-            };
-        }
-    }
+    addInstanceHelpers(Streamer);
+  }
 
-    if (StreamEvent && !StreamEvent.find) {
-        StreamEvent.find = (query: any = {}) => StreamEvent.findAll({ where: query });
-        StreamEvent.findById = (id: string) => StreamEvent.findByPk(id);
-        StreamEvent.findByIdAndUpdate = (id: string, update: any, options: any = {}) => {
-            return StreamEvent.update(update, { where: { id }, returning: true }).then((result: any) => {
-                if (options.new) {
-                    return StreamEvent.findByPk(id);
-                }
-                return result[1] ? result[1][0] : null;
-            });
-        };
-        StreamEvent.findByIdAndDelete = (id: string) => StreamEvent.destroy({ where: { id } });
-        StreamEvent.findOne = (query: any) => {
-            const originalFindOne = Object.getPrototypeOf(StreamEvent).findOne;
-            return originalFindOne.call(StreamEvent, { where: query });
-        };
-        
-        // Add instance methods to prototype
-        if (!StreamEvent.prototype.toObject) {
-            StreamEvent.prototype.toObject = function() {
-                return this.get({ plain: true });
-            };
-        }
-        if (!StreamEvent.prototype.deleteOne) {
-            StreamEvent.prototype.deleteOne = function() {
-                return this.destroy();
-            };
-        }
-        if (!StreamEvent.prototype.save) {
-            StreamEvent.prototype.save = function() {
-                return this.save();
-            };
-        }
-    }
+  // Subscription
+  if (Subscription && !Subscription.find) {
+    Subscription.find = (query: any = {}) => makeQuery(Subscription, query);
+    Subscription.findOne = (query: any = {}) =>
+      Subscription.findAll({ where: normalizeWhere(query), limit: 1 }).then((rows: any[]) => rows[0] || null);
+    Subscription.findById = (id: string) => Subscription.findByPk(id);
+    Subscription.findByIdAndUpdate = async (id: string, update: any, options: any = {}) => {
+      await Subscription.update(update, { where: { id } });
+      return options.new ? Subscription.findByPk(id) : null;
+    };
+    Subscription.findByIdAndDelete = (id: string) => Subscription.destroy({ where: { id } });
+    Subscription.deleteMany = (query: any = {}) => Subscription.destroy({ where: normalizeWhere(query) });
+    Subscription.countDocuments = (query: any = {}) => Subscription.count({ where: normalizeWhere(query) });
 
-    // Add countDocuments method
-    if (Streamer && !Streamer.countDocuments) {
-        Streamer.countDocuments = (query: any = {}) => {
-            return Streamer.count({ where: query });
-        };
-        
-        // Add basic aggregate method for platform stats
-        Streamer.aggregate = (pipeline: any[]) => {
-            // For now, handle the specific case of platform grouping
-            if (pipeline.length === 2 && 
-                pipeline[0].$group && 
-                pipeline[0].$group._id === '$platform' &&
-                pipeline[1].$sort) {
-                
-                return Streamer.findAll({
-                    attributes: [
-                        'platform',
-                        [Streamer.sequelize.fn('COUNT', '*'), 'count']
-                    ],
-                    group: ['platform'],
-                    order: [[Streamer.sequelize.literal('count'), 'DESC']],
-                    raw: true
-                }).then((results: any) => {
-                    return results.map((r: any) => ({ _id: r.platform, count: parseInt(r.count) }));
-                });
-            }
-            // For other aggregations, return empty array for now
-            return Promise.resolve([]);
-        };
-    }
+    addInstanceHelpers(Subscription);
+  }
 
-    if (Subscription && !Subscription.countDocuments) {
-        Subscription.countDocuments = (query: any = {}) => {
-            return Subscription.count({ where: query });
-        };
-    }
+  // StreamEvent
+  if (StreamEvent && !StreamEvent.find) {
+    StreamEvent.find = (query: any = {}) => makeQuery(StreamEvent, query);
+    StreamEvent.findOne = (query: any = {}) =>
+      StreamEvent.findAll({ where: normalizeWhere(query), limit: 1 }).then((rows: any[]) => rows[0] || null);
+    StreamEvent.findById = (id: string) => StreamEvent.findByPk(id);
+    StreamEvent.findByIdAndUpdate = async (id: string, update: any, options: any = {}) => {
+      await StreamEvent.update(update, { where: { id } });
+      return options.new ? StreamEvent.findByPk(id) : null;
+    };
+    StreamEvent.findByIdAndDelete = (id: string) => StreamEvent.destroy({ where: { id } });
+    StreamEvent.countDocuments = (query: any = {}) => {
+      const q = { ...query };
+      if (q.timestamp) {
+        const t: any = {};
+        if (q.timestamp.$gte) t[Op.gte] = q.timestamp.$gte;
+        if (q.timestamp.$lte) t[Op.lte] = q.timestamp.$lte;
+        q.timestamp = t;
+      }
+      return StreamEvent.count({ where: normalizeWhere(q) });
+    };
 
-    if (StreamEvent && !StreamEvent.countDocuments) {
-        StreamEvent.countDocuments = (query: any = {}) => {
-            // Handle MongoDB-style operators
-            const sequelizeQuery = { ...query };
-            if (query.timestamp && query.timestamp.$gte) {
-                if (Op) {
-                    sequelizeQuery.timestamp = {
-                        [Op.gte]: query.timestamp.$gte
-                    };
-                } else {
-                    // For memory database, do basic filtering
-                    sequelizeQuery.timestamp = query.timestamp.$gte;
-                }
-            }
-            return StreamEvent.count({ where: sequelizeQuery });
-        };
-    }
+    addInstanceHelpers(StreamEvent);
+  }
 }
 
-export { Op, Streamer, StreamEvent, Subscription };
+export { Streamer, StreamEvent, Subscription };
 

@@ -1,148 +1,135 @@
 import { Request, Response, Router } from 'express';
-import { Op, StreamEvent, Streamer } from '../../models';
+import { StreamEvent } from '../../models';
 import { logger } from '../../utils/logger';
 
 const router = Router();
 
 // GET /api/events - Get stream events
 router.get('/', async (req: Request, res: Response) => {
-    try {
-        const { 
-            streamer_id, 
-            event_type, 
-            limit = 50, 
-            offset = 0,
-            start_date,
-            end_date
-        } = req.query;
-        
-        const filter: any = {};
-        if (streamer_id) filter.streamerId = streamer_id;
-        if (event_type) filter.eventType = event_type;
-        
-        if (start_date || end_date) {
-            filter.timestamp = {};
-            if (start_date) filter.timestamp[Op.gte] = new Date(start_date as string);
-            if (end_date) filter.timestamp[Op.lte] = new Date(end_date as string);
-        }
+  try {
+    const {
+      streamer_id,
+      event_type,
+      limit = 50,
+      offset = 0,
+      start_date,
+      end_date,
+    } = req.query;
 
-        const events = await StreamEvent.findAll({
-            where: filter,
-            order: [['timestamp', 'DESC']],
-            limit: parseInt(limit as string),
-            offset: parseInt(offset as string)
-        });
+    const filter: Record<string, any> = {};
+    if (streamer_id) filter.streamerId = streamer_id;
+    if (event_type) filter.eventType = event_type;
 
-        const total = await StreamEvent.count({ where: filter });
-
-        return res.json({
-            events,
-            pagination: {
-                total,
-                limit: parseInt(limit as string),
-                offset: parseInt(offset as string),
-                hasMore: total > parseInt(offset as string) + parseInt(limit as string)
-            }
-        });
-    } catch (error) {
-        logger.error('Error fetching events:', error);
-        return res.status(500).json({ error: 'Failed to fetch events' });
+    if (start_date || end_date) {
+      filter.timestamp = {};
+      if (start_date) filter.timestamp.$gte = new Date(start_date as string);
+      if (end_date) filter.timestamp.$lte = new Date(end_date as string);
     }
+
+    const lim = parseInt(limit as string, 10);
+    const off = parseInt(offset as string, 10);
+
+    const events = await StreamEvent.find(filter)
+      .populate('streamerId')
+      .sort({ timestamp: -1 })
+      .limit(lim)
+      .skip(off);
+
+    const total = await StreamEvent.countDocuments(filter);
+
+    return res.json({
+      data: events,
+      pagination: {
+        total,
+        limit: lim,
+        offset: off,
+        hasMore: total > off + lim,
+      },
+    });
+  } catch (error) {
+    logger.error('Error fetching events:', error);
+    return res.status(500).json({ error: 'Failed to fetch events' });
+  }
 });
 
 // GET /api/events/:id - Get specific event
 router.get('/:id', async (req: Request, res: Response) => {
-    try {
-        const event = await StreamEvent.findByPk(req.params.id, {
-            include: [{
-                model: Streamer,
-                as: 'streamer'
-            }]
-        });
-        if (!event) {
-            return res.status(404).json({ error: 'Event not found' });
-        }
-
-        return res.json(event);
-    } catch (error) {
-        logger.error('Error fetching event:', error);
-        return res.status(500).json({ error: 'Failed to fetch event' });
-    }
+  try {
+    const event = await StreamEvent.findById(req.params.id).populate('streamerId');
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    return res.json({ data: event });
+  } catch (error) {
+    logger.error('Error fetching event:', error);
+    return res.status(500).json({ error: 'Failed to fetch event' });
+  }
 });
 
 // GET /api/events/streamer/:streamerId - Get events for specific streamer
 router.get('/streamer/:streamerId', async (req: Request, res: Response) => {
-    try {
-        const { limit = 20, event_type } = req.query;
-        
-        const filter: any = { streamerId: req.params.streamerId };
-        if (event_type) filter.eventType = event_type;
+  try {
+    const { limit = 20, event_type } = req.query;
 
-        const events = await StreamEvent.findAll({
-            where: filter,
-            order: [['timestamp', 'DESC']],
-            limit: parseInt(limit as string)
-        });
+    const filter: Record<string, any> = { streamerId: req.params.streamerId };
+    if (event_type) filter.eventType = event_type;
 
-        return res.json(events);
-    } catch (error) {
-        logger.error('Error fetching streamer events:', error);
-        return res.status(500).json({ error: 'Failed to fetch streamer events' });
-    }
+    const lim = parseInt(limit as string, 10);
+
+    const events = await StreamEvent.find(filter)
+      .sort({ timestamp: -1 })
+      .limit(lim);
+
+    return res.json({ data: events });
+  } catch (error) {
+    logger.error('Error fetching streamer events:', error);
+    return res.status(500).json({ error: 'Failed to fetch streamer events' });
+  }
 });
 
 // GET /api/events/stats/:streamerId - Get stream statistics for a streamer
 router.get('/stats/:streamerId', async (req: Request, res: Response) => {
-    try {
-        const { days = 30 } = req.query;
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - parseInt(days as string));
+  try {
+    const { days = 30 } = req.query;
+    const d = parseInt(days as string, 10);
+    const startDate = new Date(Date.now() - d * 24 * 60 * 60 * 1000);
 
-        const events = await StreamEvent.findAll({
-            where: {
-                streamerId: req.params.streamerId,
-                timestamp: { [Op.gte]: startDate }
-            },
-            order: [['timestamp', 'ASC']]
-        });
+    const events = await StreamEvent.find({
+      streamerId: req.params.streamerId,
+      timestamp: { $gte: startDate },
+    }).sort({ timestamp: 1 });
 
-        // Calculate statistics
-        const liveEvents = events.filter((e: any) => e.eventType === 'live');
-        const offlineEvents = events.filter((e: any) => e.eventType === 'offline');
-        
-        let totalStreamTime = 0;
-        let currentStreamStart: Date | null = null;
+    const liveEvents = events.filter((e: any) => e.eventType === 'live');
+    let totalStreamTime = 0;
+    let currentStart: Date | null = null;
 
-        for (const event of events) {
-            if (event.eventType === 'live') {
-                currentStreamStart = event.timestamp;
-            } else if (event.eventType === 'offline' && currentStreamStart) {
-                totalStreamTime += event.timestamp.getTime() - currentStreamStart.getTime();
-                currentStreamStart = null;
-            }
-        }
-
-        // If currently live, add time since last stream started
-        if (currentStreamStart) {
-            totalStreamTime += Date.now() - currentStreamStart.getTime();
-        }
-
-        const stats = {
-            totalStreams: liveEvents.length,
-            totalStreamTimeMs: totalStreamTime,
-            totalStreamTimeHours: Math.round(totalStreamTime / (1000 * 60 * 60) * 100) / 100,
-            averageStreamTimeHours: liveEvents.length > 0 
-                ? Math.round((totalStreamTime / liveEvents.length) / (1000 * 60 * 60) * 100) / 100 
-                : 0,
-            daysCovered: parseInt(days as string),
-            streamsPerWeek: Math.round((liveEvents.length / parseInt(days as string)) * 7 * 100) / 100
-        };
-
-        return res.json(stats);
-    } catch (error) {
-        logger.error('Error fetching stream stats:', error);
-        return res.status(500).json({ error: 'Failed to fetch stream stats' });
+    for (const event of events) {
+      if (event.eventType === 'live') {
+        currentStart = event.timestamp;
+      } else if (event.eventType === 'offline' && currentStart) {
+        totalStreamTime += event.timestamp.getTime() - currentStart.getTime();
+        currentStart = null;
+      }
     }
+    if (currentStart) {
+      totalStreamTime += Date.now() - currentStart.getTime();
+    }
+
+    const stats = {
+      totalStreams: liveEvents.length,
+      totalStreamTimeMs: totalStreamTime,
+      totalStreamTimeHours: Math.round((totalStreamTime / (1000 * 60 * 60)) * 100) / 100,
+      averageStreamTimeHours:
+        liveEvents.length > 0
+          ? Math.round(((totalStreamTime / liveEvents.length) / (1000 * 60 * 60)) * 100) / 100
+          : 0,
+      daysCovered: d,
+      streamsPerWeek: Math.round(((liveEvents.length / d) * 7) * 100) / 100,
+    };
+
+    return res.json({ data: stats });
+  } catch (error) {
+    logger.error('Error fetching stream stats:', error);
+    return res.status(500).json({ error: 'Failed to fetch stream stats' });
+  }
 });
 
 export { router as eventsRouter };

@@ -33,7 +33,10 @@ export class KickScraper {
 
   async init(): Promise<void> {
     try {
-      this.browser = await puppeteer.launch({
+      // Check if we're in Codespaces or similar environment
+      const isCodespaces = process.env.CODESPACES === 'true' || process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
+      
+      const launchOptions: any = {
         headless: true,
         args: [
           '--no-sandbox',
@@ -43,10 +46,34 @@ export class KickScraper {
           '--no-first-run',
           '--no-zygote',
           '--disable-gpu',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor',
           `--user-agent=${this.userAgent}`
         ]
-      });
-      logger.info('Kick scraper initialized');
+      };
+
+      // Add Codespaces-specific options
+      if (isCodespaces) {
+        launchOptions.args.push(
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--single-process'
+        );
+        // Try to use system Chromium in Codespaces
+        const chromiumPath = '/usr/bin/chromium-browser';
+        try {
+          const fs = require('fs');
+          if (fs.existsSync(chromiumPath)) {
+            launchOptions.executablePath = chromiumPath;
+          }
+        } catch (e) {
+          logger.warn('Could not find system Chromium, using bundled version');
+        }
+      }
+
+      this.browser = await puppeteer.launch(launchOptions);
+      logger.info('Kick scraper initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize Kick scraper:', error);
       throw error;
